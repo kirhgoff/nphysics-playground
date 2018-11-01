@@ -1,0 +1,14 @@
+[package]
+name = "nphysics-playground"
+version = "0.1.0"
+authors = ["Kirill Lastovirya <kirill.lastovirya@jobseeker.com.au>"]
+
+[dependencies]
+nalgebra = "0.16"
+ncollide2d = "0.17"
+nphysics2d = "0.9"
+nphysics_testbed2d = "0.1"
+
+# [[bin]]
+# name = "demo"
+# path = "./demo.rs"
