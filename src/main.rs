@@ -18,39 +18,19 @@ extern crate nphysics_testbed2d;
 #[allow(unused)]use nphysics2d::algebra::Velocity2;
 
 mod forces;
-use self::forces::RadialForce;
+use forces::RoamingForce;
 
 const COLLIDER_MARGIN: f32 = 0.01;
 
 fn main() {
-    /*
-     * World
-     */
+    let mut testbed = Testbed::new_empty();
+
     let mut world = World::new();
-    world.set_gravity(Vector2::new(0.0, -9.81));
+    //world.set_gravity(Vector2::new(0.0, -9.8));
+    world.set_gravity(Vector2::new(0.0, 0.0));
 
-    /*
-     * Ground
-     */
-    let ground_radx = 25.0;
-    let ground_rady = 1.0;
-    let ground_shape = ShapeHandle::new(Cuboid::new(Vector2::new(
-        ground_radx - COLLIDER_MARGIN,
-        ground_rady - COLLIDER_MARGIN,
-    )));
+    create_ground(&mut world);
 
-    let ground_pos = Isometry2::new(-Vector2::y() * ground_rady, nalgebra::zero());
-    world.add_collider(
-        COLLIDER_MARGIN,
-        ground_shape,
-        BodyHandle::ground(),
-        ground_pos,
-        Material::default(),
-    );
-
-    /*
-     * Create the boxes
-     */
     let num = 10;
     let radx = 0.1;
     let rady = 0.1;
@@ -72,43 +52,70 @@ fn main() {
 
             let x = i as f32 * shiftx - centerx;
             let y = j as f32 * shifty + centery;
+            let angle = x * 0.5;
 
-            /*
-             * Create the rigid body.
-             */
-            let pos = Isometry2::new(Vector2::new(x, y), 0.0);
-            let mut handle = world.add_rigid_body(pos, inertia, center_of_mass);
+            let handle = create_body(&mut world, inertia, center_of_mass, geom.clone(), x, y, angle);
 
-            {
-//                let rb = world.rigid_body_mut(handle).unwrap();
+            world.add_force_generator(RoamingForce::new(handle));
 
+            // Sensor
+            let radius = 0.2;
+            let sensor_geom = ShapeHandle::new(Ball::new(radius * 5.0));
+            world.add_sensor(sensor_geom, handle, Isometry2::identity());
+//            testbed.set_body_color(&world, handle, Point3::new(0.5, 1.0, 1.0));
 
-//                let linear = Vector2::new(-5.0 + 1 as f32 * i as f32, -5.0 + 1 as f32 * j as f32);
-//                let angular = 20.0;
-//                rb.set_velocity(Velocity2::new(linear, angular));
-
-            }
-            let force = RadialForce::new(Point2::new(x, y), vec![handle]);
-            world.add_force_generator(force);
-
-            /*
-             * Create the collider.
-             */
-            world.add_collider(
-                COLLIDER_MARGIN,
-                geom.clone(),
-                handle,
-                Isometry2::identity(),
-                Material::default(),
-            );
+            // Callback that will be executed on the main loop to handle proximities.
+            testbed.add_callback(move |world, graphics, _| {
+                println!("--------- Callback -----------------");
+                let w = &world;
+                for prox in w.proximity_events() {
+                    println!("Contact: {:?}", prox);
+                }
+            });
         }
     }
 
     /*
      * Set up the testbed.
      */
-    let mut testbed = Testbed::new(world);
-    testbed.look_at(Point2::new(0.0, -1.0), 240.0);
+    testbed.set_world(world);
+    testbed.look_at(Point2::new(0.0, -1.0), 120.0);
     testbed.hide_performance_counters();
     testbed.run();
+}
+
+fn create_body(world: &mut World<f32>, inertia: Inertia<f32>, center_of_mass: Point2<f32>, geom: ShapeHandle<f32>, x: f32, y: f32, angle: f32) -> BodyHandle {
+    let pos = Isometry2::new(Vector2::new(x, y), angle);
+    let mut handle = world.add_rigid_body(pos, inertia, center_of_mass);
+    {
+        let rb = world.rigid_body_mut(handle).unwrap();
+        rb.set_status(BodyStatus::Dynamic);
+    }
+
+    world.add_collider(
+        COLLIDER_MARGIN,
+        geom,
+        handle,
+        Isometry2::identity(),
+        Material::default(),
+    );
+
+    handle
+}
+
+fn create_ground(world: &mut World<f32>) {
+    let ground_radx = 25.0;
+    let ground_rady = 1.0;
+    let ground_shape = ShapeHandle::new(Cuboid::new(Vector2::new(
+        ground_radx - COLLIDER_MARGIN,
+        ground_rady - COLLIDER_MARGIN,
+    )));
+    let ground_pos = Isometry2::new(-Vector2::y() * ground_rady, nalgebra::zero());
+    world.add_collider(
+        COLLIDER_MARGIN,
+        ground_shape,
+        BodyHandle::ground(),
+        ground_pos,
+        Material::default(),
+    );
 }
