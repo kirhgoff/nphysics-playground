@@ -48,7 +48,7 @@ fn main() {
 
     for i in 0usize..num {
         for j in 0..num {
-            if i % 2 == 0 || j % 2 == 0 { continue; };
+            if i % 3 != 0 || j % 3 != 0 { continue; };
 
             let x = i as f32 * shiftx - centerx;
             let y = j as f32 * shifty + centery;
